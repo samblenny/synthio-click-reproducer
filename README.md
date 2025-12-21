@@ -16,6 +16,17 @@ Software:
 - Code from this repo (see project bundle zip on release page)
 
 
+## Example Audio 8 kHz with dit and dah .wav file samples
+
+![example_8kHz_wav_sample.png](example_8kHz_wav_sample.png)
+
+[example_8kHz_wav_sample.wav](example_8kHz_wav_sample.wav) (recorded DAC output)
+
+[dit_8kHz_12wpm.wav](dah_8kHz_12wpm.wav)  (source sample)
+
+[dah_8kHz_12wpm.wav](dah_8kHz_12wpm.wav)  (source sample)
+
+
 ## Example Audio 48000 kHz
 
 ![example_48kHz.png](example_48kHz.png)
