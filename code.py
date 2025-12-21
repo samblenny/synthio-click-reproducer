@@ -11,8 +11,8 @@ import ulab.numpy as np
 from adafruit_tlv320 import TLV320DAC3100
 
 
-SAMPLE_RATE = 44800   # Sounds okay (maybe some slight filter ringing/phasing?)
-#SAMPLE_RATE = 44100  # Sounds pretty good
+#SAMPLE_RATE = 48000   # Sounds okay (maybe some slight filter ringing/phasing?)
+SAMPLE_RATE = 44100  # Sounds pretty good
 #SAMPLE_RATE = 22050  # Note: lots of harmonics and aliasing
 #SAMPLE_RATE = 11025  # Even more harmonics and aliasing
 BUFFER_SIZE = 256
