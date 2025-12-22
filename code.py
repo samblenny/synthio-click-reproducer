@@ -1,5 +1,8 @@
 # SPDX-License-Identifier: MIT
 # SPDX-FileCopyrightText: Copyright 2025 Sam Blenny
+#
+# WAV file beep demo for Fruit Jam (adjust pins as needed for other boards)
+#
 from audiobusio import I2SOut
 import audiocore
 from board import (
@@ -7,18 +10,17 @@ from board import (
 )
 from digitalio import DigitalInOut, Direction, Pull
 from pwmio import PWMOut
-import synthio
 import time
-import ulab.numpy as np
 from adafruit_tlv320 import TLV320DAC3100
 
-
-#SAMPLE_RATE = 48000   # Sounds okay (maybe some slight filter ringing/phasing?)
-#SAMPLE_RATE = 44100  # Sounds pretty good
-#SAMPLE_RATE = 22050  # Note: lots of harmonics and aliasing
-#SAMPLE_RATE = 11025  # Even more harmonics and aliasing
+# To try different sample rates, change which one of these is uncommented
+#SAMPLE_RATE = 48000
+#SAMPLE_RATE = 44100
+#SAMPLE_RATE = 22050
+#SAMPLE_RATE = 11025
 SAMPLE_RATE = 8000
-BUFFER_SIZE = 64
+
+BUFFER_SIZE = 512
 
 # Reset Fruit Jam rev D TLV320 I2S DAC
 rst = DigitalInOut(PERIPH_RESET)
@@ -28,7 +30,7 @@ time.sleep(0.1)
 rst.value = True
 time.sleep(0.05)
 
-# Configure DAC
+# Configure DAC (NOTE: The 5 MHz PWMOut to I2S_MCLK is essential!)
 i2c = I2C()
 dac = TLV320DAC3100(i2c)
 mclk_out = PWMOut(I2S_MCLK, frequency=5_000_000, duty_cycle=2**15)
@@ -38,15 +40,18 @@ dac.headphone_output = True
 dac.headphone_volume = -6    # CAUTION! Line level. Too loud for headphones!
 audio = I2SOut(bit_clock=I2S_BCLK, word_select=I2S_WS, data=I2S_DIN)
 
-# Load 12 WPM wav files (100ms dit, 300ms dah)
-dit = audiocore.WaveFile("dit_8kHz_12wpm.wav")
-dah = audiocore.WaveFile("dah_8kHz_12wpm.wav")
+# Load wav file with 650 Hz beep at the specified sample rate
+sample = audiocore.WaveFile({
+    8000: "sinewave_8kHz.wav",
+    11025: "sinewave_11kHz.wav",
+    22050: "sinewave_22kHz.wav",
+    44100: "sinewave_44kHz.wav",
+    48000: "sinewave_48kHz.wav",
+}[SAMPLE_RATE])
 
-# Send Morse code ("C") with synthio sinewave notes on the Fruit Jam DAC
+# Send wav file beeps on the Fruit Jam DAC
+print(f"Beeping at sample rate {SAMPLE_RATE} Hz...")
 time.sleep(0.5)
-note = synthio.Note(frequency=650)
 while True:
-    for (sample, s) in ((dah, 0.3), (dit, 0.1), (dah, 0.3), (dit, 0.1)):
-        audio.play(sample)
-        time.sleep(s + 0.1)
+    audio.play(sample)
     time.sleep(2)
