@@ -6,6 +6,7 @@ from board import (
     I2C, I2S_BCLK, I2S_DIN, I2S_MCLK, I2S_WS, PERIPH_RESET
 )
 from digitalio import DigitalInOut, Direction, Pull
+from pwmio import PWMOut
 import synthio
 import time
 import ulab.numpy as np
@@ -30,7 +31,8 @@ time.sleep(0.05)
 # Configure DAC
 i2c = I2C()
 dac = TLV320DAC3100(i2c)
-dac.configure_clocks(sample_rate=SAMPLE_RATE, bit_depth=16)
+mclk_out = PWMOut(I2S_MCLK, frequency=5_000_000, duty_cycle=2**15)
+dac.configure_clocks(sample_rate=SAMPLE_RATE, bit_depth=16, mclk_freq=5_000_000)
 dac.speaker_output = False
 dac.headphone_output = True
 dac.headphone_volume = -6    # CAUTION! Line level. Too loud for headphones!
