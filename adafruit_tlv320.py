@@ -798,11 +798,14 @@ class _Page0Registers(_PagedRegisterBase):
         """Clock settings for the specified sample rate.
 
         :param mclk_freq: The main clock frequency in Hz. Set this to 5_000_000
-                          for 5 MHz PWM to MCLK, or set it to 0 to use BCLK as
-                          the PLL input.
+        when supplying a 5 MHz PWM square wave into MCLK, or set it to 0 to use
+        BCLK as the PLL input.
+
         :param sample_rate: The desired sample rate in Hz (8000, 11025, 22050,
-                            44100, or 48000)
+        44100, or 48000)
+
         :param bit_depth: The bit depth (16, 20, 24, or 32)
+
         :return: True if successful, False otherwise
         """
         if bit_depth == 16:
@@ -814,25 +817,14 @@ class _Page0Registers(_PagedRegisterBase):
         else:
             data_len = DATA_LEN_32
 
-        # Set suitable DAC Oversampling Rate (DOSR) based on sample rate to
-        # avoid harmonic distortion and noise from delta-sigma conversion. See
-        # datasheet section 6.3.8.
-        if sample_rate == 8000:
-            dosr = 768
-        elif sample_rate <= 11025:
-            dosr = 512
-        elif sample_rate <= 22050:
-            dosr = 256
-        else:
-            dosr = 128
-
         if mclk_freq == 0:
-            # Use BCLK as the PLL clock source
+            # Use BCLK as the PLL clock source (works but Not Recommended!)
             self._set_bits(_CLOCK_MUX1, 0x03, 2, 0b01)
             self._set_bits(_CLOCK_MUX1, 0x03, 0, 0b11)
             p, r, j, d = 1, 3, 20, 0
             ndac = 5
             mdac = 3
+            dosr = 128
             # Set the data format
             self._set_codec_interface(FORMAT_I2S, data_len)
             # Configure PLL
@@ -856,7 +848,8 @@ class _Page0Registers(_PagedRegisterBase):
             #
             # NOTE: DOSR controls the oversampling rate. Slower clock rates
             # need higher oversampling to shift the delta-sigma modulator
-            # quantization noise up out of the audible frequency range.
+            # quantization noise up out of the audible frequency range. See
+            # datahseet section 6.3.8.
             #
             # The constants here come from running a brute force solver to
             # satisfy the constraints in the datasheet while exactly converting
