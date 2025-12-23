@@ -1,3 +1,19 @@
+// $ go run pll_solver.go
+//
+// PLL_CLKIN = 10000000 Hz
+//   8000 Hz: p, r, j, d, ndac, mdac, dosr = 1, 3, 3, 4816, 17, 1, 768
+//  11025 Hz: p, r, j, d, ndac, mdac, dosr = 5, 1, 53, 6256, 19, 1, 512
+//  22050 Hz: p, r, j, d, ndac, mdac, dosr = 5, 1, 53, 6256, 19, 1, 256
+//  44100 Hz: p, r, j, d, ndac, mdac, dosr = 5, 1, 53, 6256, 19, 1, 128
+//  48000 Hz: p, r, j, d, ndac, mdac, dosr = 1, 3, 3, 4816, 17, 1, 128
+//
+// PLL_CLKIN = 15000000 Hz
+//   8000 Hz: p, r, j, d, ndac, mdac, dosr = 1, 1, 6, 9632, 17, 1, 768
+//  11025 Hz: p, r, j, d, ndac, mdac, dosr = 5, 1, 35, 7504, 19, 1, 512
+//  22050 Hz: p, r, j, d, ndac, mdac, dosr = 5, 1, 35, 7504, 19, 1, 256
+//  44100 Hz: p, r, j, d, ndac, mdac, dosr = 5, 1, 35, 7504, 19, 1, 128
+//  48000 Hz: p, r, j, d, ndac, mdac, dosr = 1, 1, 6, 9632, 17, 1, 128
+
 package main
 
 import (
@@ -98,9 +114,8 @@ func updateBest(best map[float64]map[RateKey]Solution, s Solution) {
 
 func main() {
 	pllClkins := []float64{
-		12_500_000,
-		6_250_000,
-		5_000_000,
+		15_000_000,
+		10_000_000,
 	}
 
 	rates := []Rate{
