@@ -14,7 +14,6 @@ from pwmio import PWMOut
 
 from adafruit_tlv320 import TLV320DAC3100
 
-
 # I2S MCLK clock frequency
 MCLK_HZ = const(15_000_000)
 
@@ -50,15 +49,14 @@ mclk_pwm = PWMOut(I2S_MCLK, frequency=MCLK_HZ, duty_cycle=2**15)
 
 # Loop through all the sample rates
 sample_rates = (
-    (8000, "sinewave_8kHz.wav", 2), # 8000 gets 2 beeps
-    (11025, "sinewave_11kHz.wav", 3), # 11025 gets 3 beeps
-    (22050, "sinewave_22kHz.wav", 4), # 4 beeps
-    (44100, "sinewave_44kHz.wav", 5), # ...
+    (8000, "sinewave_8kHz.wav", 2),  # 8000 gets 2 beeps
+    (11025, "sinewave_11kHz.wav", 3),  # 11025 gets 3 beeps
+    (22050, "sinewave_22kHz.wav", 4),  # 4 beeps
+    (44100, "sinewave_44kHz.wav", 5),  # ...
     (48000, "sinewave_48kHz.wav", 6),
 )
 while True:
     for sample_rate, filename, beeps in sample_rates:
-
         # Reset and re-configure DAC for the current sample rate
         dac = configure_dac(i2c, sample_rate, reset_pin=PERIPH_RESET)
 
