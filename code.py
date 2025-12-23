@@ -5,6 +5,7 @@
 #
 from audiobusio import I2SOut
 import audiocore
+import board
 from board import (
     I2C, I2S_BCLK, I2S_DIN, I2S_MCLK, I2S_WS, PERIPH_RESET
 )
@@ -14,11 +15,11 @@ import time
 from adafruit_tlv320 import TLV320DAC3100
 
 # To try different sample rates, change which one of these is uncommented
-#SAMPLE_RATE = 48000
+SAMPLE_RATE = 48000
 #SAMPLE_RATE = 44100
 #SAMPLE_RATE = 22050
 #SAMPLE_RATE = 11025
-SAMPLE_RATE = 8000
+#SAMPLE_RATE = 8000
 
 BUFFER_SIZE = 512
 
@@ -33,12 +34,14 @@ time.sleep(0.05)
 # Configure DAC (NOTE: The 5 MHz PWMOut to I2S_MCLK is essential!)
 i2c = I2C()
 dac = TLV320DAC3100(i2c)
-mclk_out = PWMOut(I2S_MCLK, frequency=5_000_000, duty_cycle=2**15)
-dac.configure_clocks(sample_rate=SAMPLE_RATE, bit_depth=16, mclk_freq=5_000_000)
+# mclk_out = PWMOut(I2S_MCLK, frequency=5_000_000, duty_cycle=2**15)
+# dac.configure_clocks(sample_rate=SAMPLE_RATE, bit_depth=16, mclk_freq=5_000_000)
+dac.configure_clocks(sample_rate=SAMPLE_RATE, bit_depth=16)
 dac.speaker_output = False
 dac.headphone_output = True
 dac.headphone_volume = -6    # CAUTION! Line level. Too loud for headphones!
-audio = I2SOut(bit_clock=I2S_BCLK, word_select=I2S_WS, data=I2S_DIN)
+# audio = I2SOut(bit_clock=I2S_BCLK, word_select=I2S_WS, data=I2S_DIN)
+audio = I2SOut(bit_clock=board.A2, word_select=board.A3, data=board.A4)
 
 # Load wav file with 650 Hz beep at the specified sample rate
 sample = audiocore.WaveFile({
