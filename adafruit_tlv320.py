@@ -105,6 +105,26 @@ volume test example: `Volume test <./examples.html#volume-test>`_
     # CAUTION: This will be *way* too loud for earbuds, please be careful!
     dac.headphone_volume = -15.5  # default is -30.1 dB
 
+5 MHz PWM Clock to I2S_MCLK for Better Audio Quality
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you want to use lower sample rates to save RAM and CPU, you can get better
+audio quality by supplying a 5 MHz clock to the I2S_MCLK pin with PWMOut. For
+example, this lets you get very good audio quality (at limited bandwidth) using
+8 kHz WAV file samples.
+
+::
+
+    sample_rate = 8000  # can also use 11025, 22050, 44100, or 48000
+    dac = TLV320DAC3100(board.I2C())
+    mclk_out = pwmio.PWMOut(board.I2S_MCLK, frequency=5_000_000, duty_cycle=2**15)
+    dac.configure_clocks(sample_rate=sample_rate, bit_depth=16, mclk_freq=5_000_000)
+    dac.speaker_output = False
+    dac.headphone_output = True
+    dac.headphone_volume = -6    # CAUTION! Line level. Too loud for headphones!
+    audio = audiobusio.I2SOut(bit_clock=board.I2S_BCLK, word_select=board.I2S_WS,
+        data=board.I2S_DIN)
+
 API
 ---
 """
@@ -795,19 +815,10 @@ class _Page0Registers(_PagedRegisterBase):
         self._write_register(_CODEC_IF_CTRL1, value)
 
     def _configure_clocks_for_sample_rate(self, mclk_freq: int, sample_rate: int, bit_depth: int):
-        """Clock settings for the specified sample rate.
+        # For sphinx docs, see configure_clocks() which wraps this function.
+        #
+        # Only difference is this checks mclk_freq==0 instead of None.
 
-        :param mclk_freq: The main clock frequency in Hz. Set this to 5_000_000
-        when supplying a 5 MHz PWM square wave into MCLK, or set it to 0 to use
-        BCLK as the PLL input.
-
-        :param sample_rate: The desired sample rate in Hz (8000, 11025, 22050,
-        44100, or 48000)
-
-        :param bit_depth: The bit depth (16, 20, 24, or 32)
-
-        :return: True if successful, False otherwise
-        """
         if bit_depth == 16:
             data_len = DATA_LEN_16
         elif bit_depth == 20:
@@ -2087,10 +2098,12 @@ class TLV320DAC3100:
         This function configures all necessary clock settings including PLL, dividers,
         and interface settings to achieve the requested sample rate.
 
-        :param sample_rate: The desired sample rate in Hz (e.g., 44100, 48000)
-        :param bit_depth: The bit depth (16, 20, 24, or 32), defaults to 16
-        :param mclk_freq: The main clock frequency in Hz (e.g., 12000000 for 12MHz)
-                         If None (default), BCLK will be used as the PLL input source
+        :param sample_rate: The desired sample rate in Hz (8000, 11025, 22050,
+            44100, or 48000)
+        :param bit_depth: The bit depth (16, 20, 24, or 32)
+        :param mclk_freq: The main clock frequency in Hz. Set this to 5_000_000
+            when supplying a 5 MHz PWM square wave into MCLK. If None (the
+            default), use BCLK as the PLL input.
         :return: True if successful, False otherwise
         """
         self._sample_rate = sample_rate
