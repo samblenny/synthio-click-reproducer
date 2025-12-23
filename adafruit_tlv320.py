@@ -117,8 +117,8 @@ example, this lets you get very good audio quality (at limited bandwidth) using
 
     sample_rate = 8000  # can also use 11025, 22050, 44100, or 48000
     dac = TLV320DAC3100(board.I2C())
-    mclk_out = pwmio.PWMOut(board.I2S_MCLK, frequency=5_000_000, duty_cycle=2**15)
-    dac.configure_clocks(sample_rate=sample_rate, bit_depth=16, mclk_freq=5_000_000)
+    mclk_out = pwmio.PWMOut(board.I2S_MCLK, frequency=15_000_000, duty_cycle=2**15)
+    dac.configure_clocks(sample_rate=sample_rate, bit_depth=16, mclk_freq=15_000_000)
     dac.speaker_output = False
     dac.headphone_output = True
     dac.headphone_volume = -6    # CAUTION! Line level. Too loud for headphones!
@@ -853,9 +853,9 @@ class _Page0Registers(_PagedRegisterBase):
             self._set_bits(_PLL_PROG_PR, 0x01, 7, 1)
             time.sleep(0.01)
 
-        elif mclk_freq == 5_000_000:
+        elif mclk_freq == 15_000_000:
             # Use MCLK as the PLL clock source. To make this work, you need to
-            # drive I2S_MCLK with a 5 MHz, 50% duty cycle pwmio.PWMOut.
+            # drive I2S_MCLK with a 15 MHz, 50% duty cycle pwmio.PWMOut.
             #
             # NOTE: DOSR controls the oversampling rate. Slower clock rates
             # need higher oversampling to shift the delta-sigma modulator
@@ -870,15 +870,15 @@ class _Page0Registers(_PagedRegisterBase):
             # harmonic distortion of the DAC output.
             #
             if sample_rate == 8000:
-                p, r, j, d, ndac, mdac, dosr = 1, 3, 6, 9632, 17, 1, 768
+                p, r, j, d, ndac, mdac, dosr = 1, 1, 6, 9632, 17, 1, 768
             elif sample_rate == 11025:
-                p, r, j, d, ndac, mdac, dosr = 5, 2, 53, 6256, 19, 1, 512
+                p, r, j, d, ndac, mdac, dosr = 5, 1, 35, 7504, 19, 1, 512
             elif sample_rate == 22050:
-                p, r, j, d, ndac, mdac, dosr = 5, 2, 53, 6256, 19, 1, 256
+                p, r, j, d, ndac, mdac, dosr = 5, 1, 35, 7504, 19, 1, 256
             elif sample_rate == 44100:
-                p, r, j, d, ndac, mdac, dosr = 5, 2, 53, 6256, 19, 1, 128
+                p, r, j, d, ndac, mdac, dosr = 5, 1, 35, 7504, 19, 1, 128
             elif sample_rate == 48000:
-                p, r, j, d, ndac, mdac, dosr = 1, 3, 6, 9632, 17, 1, 128
+                p, r, j, d, ndac, mdac, dosr = 1, 1, 6, 9632, 17, 1, 128
             else:
                 raise ValueError("Need a valid sample rate: 8000, 11025, 22050, 44100, or 48000")
 
@@ -898,7 +898,7 @@ class _Page0Registers(_PagedRegisterBase):
             time.sleep(0.01)
 
         else:
-            raise ValueError("Need a valid MCLK frequency: 12MHz, 24MHz or 0 for BCLK")
+            raise ValueError("Need a valid MCLK frequency: 15MHz or 0 for BCLK")
 
 
 class _Page1Registers(_PagedRegisterBase):
@@ -2101,8 +2101,8 @@ class TLV320DAC3100:
         :param sample_rate: The desired sample rate in Hz (8000, 11025, 22050,
             44100, or 48000)
         :param bit_depth: The bit depth (16, 20, 24, or 32)
-        :param mclk_freq: The main clock frequency in Hz. Set this to 5_000_000
-            when supplying a 5 MHz PWM square wave into MCLK. If None (the
+        :param mclk_freq: The main clock frequency in Hz. Set this to 15_000_000
+            when supplying a 15 MHz PWM square wave into MCLK. If None (the
             default), use BCLK as the PLL input.
         :return: True if successful, False otherwise
         """
