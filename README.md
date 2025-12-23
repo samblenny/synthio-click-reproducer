@@ -16,13 +16,13 @@ Logic analyzer measurements of I2S BCLK Hz vs DAC sample rate for Fruit Jam.
 
 ## Summary of BCLK Frequencies
 
-| Sample Rate | mean BCLK |
-| ----------- | --------- |
-| 8000  | 256.011 kHz |
-| 11025 | 352.797 kHz |
-| 22050 | 705.529 kHz |
-| 44100 | 1.411 MHz |
-| 48000 | 1.535 MHz |
+| Sample Rate | mean BCLK   | sample rate * 32 |
+| ----------- | ----------- | ---------------- |
+| 8000        | 256.011 kHz |  256000          |
+| 11025       | 352.797 kHz |  352800          |
+| 22050       | 705.529 kHz |  705600          |
+| 44100       | 1.411 MHz   | 1411200          |
+| 48000       | 1.535 MHz   | 1536000          |
 
 
 ## BCLK for 8000 Hz Sample Rate
