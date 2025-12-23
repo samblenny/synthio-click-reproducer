@@ -870,7 +870,7 @@ class _Page0Registers(_PagedRegisterBase):
             # harmonic distortion of the DAC output.
             #
             if sample_rate == 8000:
-                p, r, j, d, ndac, mdac, dosr = 1, 3,  6, 9632, 17, 1, 768
+                p, r, j, d, ndac, mdac, dosr = 1, 3, 6, 9632, 17, 1, 768
             elif sample_rate == 11025:
                 p, r, j, d, ndac, mdac, dosr = 5, 2, 53, 6256, 19, 1, 512
             elif sample_rate == 22050:
@@ -878,7 +878,7 @@ class _Page0Registers(_PagedRegisterBase):
             elif sample_rate == 44100:
                 p, r, j, d, ndac, mdac, dosr = 5, 2, 53, 6256, 19, 1, 128
             elif sample_rate == 48000:
-                p, r, j, d, ndac, mdac, dosr = 1, 3,  6, 9632, 17, 1, 128
+                p, r, j, d, ndac, mdac, dosr = 1, 3, 6, 9632, 17, 1, 128
             else:
                 raise ValueError("Need a valid sample rate: 8000, 11025, 22050, 44100, or 48000")
 
