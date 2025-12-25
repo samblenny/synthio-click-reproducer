@@ -827,9 +827,7 @@ class _Page0Registers(_PagedRegisterBase):
 
         self._write_register(_CODEC_IF_CTRL1, value)
 
-    def _configure_clocks_for_sample_rate(
-        self, mclk_freq: int, sample_rate: int, bit_depth: int
-    ):
+    def _configure_clocks_for_sample_rate(self, mclk_freq: int, sample_rate: int, bit_depth: int):
         # For sphinx docs, see configure_clocks() which wraps this function.
 
         # CircuitPython always uses 16-bit stereo for I2S
@@ -890,7 +888,9 @@ class _Page0Registers(_PagedRegisterBase):
                 # kHz, etc.
                 p, r, j, d, ndac, mdac, dosr = 1, 3, 20, 0, 5, 3, 128
             else:
-                raise ValueError("Need a valid BCLK sample rate: 8000, 11025, 22050, 44100, or 48000")
+                raise ValueError(
+                    "Need a valid BCLK sample rate: 8000, 11025, 22050, 44100, or 48000"
+                )
 
         elif mclk_freq == 15_000_000:
             # Use MCLK as the PLL input (PLL_CLK_IN). To make this work, you
@@ -909,7 +909,9 @@ class _Page0Registers(_PagedRegisterBase):
             elif sample_rate == 48000:
                 p, r, j, d, ndac, mdac, dosr = 1, 1, 6, 9632, 17, 1, 128
             else:
-                raise ValueError("Need a valid MCLK sample rate: 8000, 11025, 22050, 44100, or 48000")
+                raise ValueError(
+                    "Need a valid MCLK sample rate: 8000, 11025, 22050, 44100, or 48000"
+                )
 
         else:
             raise ValueError("Need a valid MCLK frequency: 15MHz or 0 for BCLK")
@@ -1200,8 +1202,8 @@ class TLV320DAC3100:
         time.sleep(0.01)
         # Start with very low volumes to reduce popping when we set up the
         # clock configuration.
-        self._page0._set_channel_volume(False, -63.5) # Left volume
-        self._page0._set_channel_volume(True, -63.5) # Right volume
+        self._page0._set_channel_volume(False, -63.5)  # Left volume
+        self._page0._set_channel_volume(True, -63.5)  # Right volume
 
         # Both DACs on with normal path by default
         self._page0._set_dac_data_path(
@@ -1216,7 +1218,6 @@ class TLV320DAC3100:
         self._page0._configure_clocks_for_sample_rate(
             self._mclk_freq, self._sample_rate, self.bit_depth
         )
-
 
     # Basic properties and methods
 

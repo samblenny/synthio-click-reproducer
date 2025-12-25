@@ -67,18 +67,19 @@ mclk_rates = (
     (48000, "sinewave_48kHz.wav", 6),
 )
 while True:
-
     # First do MCLK = 15 MHz, then do MCLK = None (meaning use BCLK)
     for mclk_hz_ in (MCLK_HZ, None):
-
         if mclk_hz_:
             # Set up 15 MHz MCLK PWM clock output for less hiss and distortion
             mclk_pwm = PWMOut(I2S_MCLK, frequency=MCLK_HZ, duty_cycle=2**15)
 
         # Play beeps at all supported sample rates
         print(f"Using MCLK = {mclk_hz_}:")
-        for sample_rate, filename, beeps, in mclk_rates:
-
+        for (
+            sample_rate,
+            filename,
+            beeps,
+        ) in mclk_rates:
             # Reset and re-configure DAC for the current sample rate
             dac = configure_dac(i2c, sample_rate, mclk_hz_)
 
