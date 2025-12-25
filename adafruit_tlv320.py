@@ -879,7 +879,7 @@ class _Page0Registers(_PagedRegisterBase):
                 p, r, j, d, ndac, mdac, dosr = 1, 2, 38, 0, 19, 1, 128
             elif sample_rate == 48000:
                 p, r, j, d, ndac, mdac, dosr = 1, 2, 34, 0, 17, 1, 128
-            elif sample_rate == 8000 or sample_rate == 11025:
+            elif sample_rate in {8000, 11025}:
                 # These PLL tuning values don't satisfy the datasheet
                 # constraints. They are from the old PLL config before MCLK
                 # support was added. The PLL won't lock and it will sound
