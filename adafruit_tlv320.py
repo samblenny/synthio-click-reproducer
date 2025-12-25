@@ -106,7 +106,7 @@ volume test example: `Volume test <./examples.html#volume-test>`_
     dac.headphone_volume = -15.5  # default is -30.1 dB
 
 15 MHz PWM Clock to I2S_MCLK for Better Audio Quality
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can get better audio quality (less hiss and distortion) by sending a 15 MHz
 clock to the I2S_MCLK pin with pwmio.PWMOut. For example, this lets you get
