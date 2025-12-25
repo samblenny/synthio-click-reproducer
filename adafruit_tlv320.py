@@ -105,23 +105,36 @@ volume test example: `Volume test <./examples.html#volume-test>`_
     # CAUTION: This will be *way* too loud for earbuds, please be careful!
     dac.headphone_volume = -15.5  # default is -30.1 dB
 
-5 MHz PWM Clock to I2S_MCLK for Better Audio Quality
+15 MHz PWM Clock to I2S_MCLK for Better Audio Quality
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you want to use lower sample rates to save RAM and CPU, you can get better
-audio quality by supplying a 5 MHz clock to the I2S_MCLK pin with PWMOut. For
-example, this lets you get very good audio quality (at limited bandwidth) using
-8 kHz WAV file samples.
+You can get better audio quality (less hiss and distortion) by sending a 15 MHz
+clock to the I2S_MCLK pin with pwmio.PWMOut. For example, this lets you get
+very good audio quality (at limited bandwidth) using 8 kHz WAV file samples.
 
 ::
 
     sample_rate = 8000  # can also use 11025, 22050, 44100, or 48000
-    dac = TLV320DAC3100(board.I2C())
+
+    # 1. Begin sending the MCLK PWM clock signal
     mclk_out = pwmio.PWMOut(board.I2S_MCLK, frequency=15_000_000, duty_cycle=2**15)
-    dac.configure_clocks(sample_rate=sample_rate, bit_depth=16, mclk_freq=15_000_000)
+
+    # 2. Initialize DAC (this includes a soft reset and sets minimum volume)
+    dac = TLV320DAC3100(board.I2C())
+
+    # 3. Configure headphone/speaker routing and volumes (order matters here)
     dac.speaker_output = False
     dac.headphone_output = True
-    dac.headphone_volume = -6    # CAUTION! Line level. Too loud for headphones!
+    dac.dac_volume = -3  # Keep this below 0 to avoid DSP filter clipping
+    dac.headphone_volume = 0  # CAUTION! Line level. Too loud for headphones!
+
+    # 4. Configure the right PLL and CODEC settings for our sample rate
+    dac.configure_clocks(sample_rate=sample_rate, mclk_freq=15_000_000)
+
+    # 5. Wait for power-on volume ramp-up to finish
+    time.sleep(0.35)
+
+    # After this, you can do audio.play(whatever) to play samples, synths, etc.
     audio = audiobusio.I2SOut(bit_clock=board.I2S_BCLK, word_select=board.I2S_WS,
         data=board.I2S_DIN)
 
@@ -814,61 +827,77 @@ class _Page0Registers(_PagedRegisterBase):
 
         self._write_register(_CODEC_IF_CTRL1, value)
 
-    def _configure_clocks_for_sample_rate(self, mclk_freq: int, sample_rate: int, bit_depth: int):
+    def _configure_clocks_for_sample_rate(
+        self, mclk_freq: int, sample_rate: int, bit_depth: int
+    ):
         # For sphinx docs, see configure_clocks() which wraps this function.
-        #
-        # Only difference is this checks mclk_freq==0 instead of None.
 
+        # CircuitPython always uses 16-bit stereo for I2S
         if bit_depth == 16:
             data_len = DATA_LEN_16
-        elif bit_depth == 20:
-            data_len = DATA_LEN_20
-        elif bit_depth == 24:
-            data_len = DATA_LEN_24
         else:
-            data_len = DATA_LEN_32
+            raise ValueError("CircuitPython I2S only supports 16-bit stereo")
+
+        # The P, R, J, D, NDAC, and MDAC constants below come from running a
+        # brute force solver to satisfy the constraints in the datasheet while
+        # exactly converting the PLL input clock to the necessary clock for
+        # oversampling (sample rate * DOSR). By configuring the PLL properly,
+        # it's possible to _dramatically_ reduce the noise floor and harmonic
+        # distortion of the DAC output. When the PLL doesn't lock due to messy
+        # input clock signal or unsuitable tuning parameters, you get broadband
+        # hiss (extends above Nyquist frequency) and significant harmonic
+        # distortion.
+        #
+        # DOSR controls the oversampling rate. Slower clock rates need higher
+        # oversampling to shift the delta-sigma modulator quantization noise up
+        # out of the audible frequency range. See datasheet section 6.3.8.
 
         if mclk_freq == 0:
-            # Use BCLK as the PLL clock source (works but Not Recommended!)
-            self._set_bits(_CLOCK_MUX1, 0x03, 2, 0b01)
-            self._set_bits(_CLOCK_MUX1, 0x03, 0, 0b11)
-            p, r, j, d = 1, 3, 20, 0
-            ndac = 5
-            mdac = 3
-            dosr = 128
-            # Set the data format
-            self._set_codec_interface(FORMAT_I2S, data_len)
-            # Configure PLL
-            pr_value = ((p & 0x07) << 4) | (r & 0x0F)
-            self._write_register(_PLL_PROG_PR, pr_value & 0x7F)
-            self._write_register(_PLL_PROG_J, j & 0x3F)
-            self._write_register(_PLL_PROG_D_MSB, (d >> 8) & 0xFF)
-            self._write_register(_PLL_PROG_D_LSB, d & 0xFF)
-            # Configure dividers
-            self._write_register(_NDAC, 0x80 | (ndac & 0x7F))
-            self._write_register(_MDAC, 0x80 | (mdac & 0x7F))
-            self._write_register(_DOSR_MSB, (dosr >> 8) & 0xFF)
-            self._write_register(_DOSR_LSB, dosr & 0xFF)
-            # Power up PLL
-            self._set_bits(_PLL_PROG_PR, 0x01, 7, 1)
-            time.sleep(0.01)
+            # Use BCLK as the PLL input (PLL_CLKIN) and multiply it up to the
+            # necessary DAC_MOD_CLK for oversampling. Bit clock (BCLK) is
+            # sample rate * 32 because CircuitPython I2S uses 16-bit stereo.
+            #
+            # Constraint formulas for PLL output and dividers (when D = 0):
+            # 1. Oversample clock: DAC_MOD_CLK = CODEC_CLKIN / (NDAC * MDAC)
+            # 2. Sample rate clock: DAC_fS = CODEC_CLKIN / (NDAC * MDAC * DOSR)
+            # 3. 512 kHz <= (PLL_CLKIN / P) <= 20 MHz
+            # 4. 80 MHz <= (PLL_CLKIN * J.D * R / P) <= 110 MHz
+            #
+            # Because of the 512 kHz minimum PLL_CLKIN constraint, BCLK as
+            # PLL_CLKIN will never work for 8000 or 11025 kHz (256 kHz and
+            # 352.8 kHz bit clocks), no matter how clean the BCLK timing is.
+            #
+            # CAUTION: Although these PLL tunings satisfy the datasheet
+            # constraints, in practice on Fruit Jam, the PLL never locks for
+            # these. So, you get hiss and significant harmonic distortion. It's
+            # not too bad at 44100 and 48000, but 22050 and below sound very
+            # distorted. The problem is that the BCLK timing is jittery and a
+            # bit off frequency. Using MCLK with stable PWM sounds way better.
+            #
+            clock_mux1_source = 0b01  # BCLK
+            if sample_rate == 22050:
+                p, r, j, d, ndac, mdac, dosr = 1, 4, 38, 0, 19, 1, 256
+            elif sample_rate == 44100:
+                p, r, j, d, ndac, mdac, dosr = 1, 2, 38, 0, 19, 1, 128
+            elif sample_rate == 48000:
+                p, r, j, d, ndac, mdac, dosr = 1, 2, 34, 0, 17, 1, 128
+            elif sample_rate == 8000 or sample_rate == 11025:
+                # These PLL tuning values don't satisfy the datasheet
+                # constraints. They are from the old PLL config before MCLK
+                # support was added. The PLL won't lock and it will sound
+                # extremely distorted, but we'll do it anyway for backward
+                # compatibility with existing Fruit Jam code that uses 8000
+                # kHz, etc.
+                p, r, j, d, ndac, mdac, dosr = 1, 3, 20, 0, 5, 3, 128
+            else:
+                raise ValueError("Need a valid BCLK sample rate: 8000, 11025, 22050, 44100, or 48000")
 
         elif mclk_freq == 15_000_000:
-            # Use MCLK as the PLL clock source. To make this work, you need to
-            # drive I2S_MCLK with a 15 MHz, 50% duty cycle pwmio.PWMOut.
+            # Use MCLK as the PLL input (PLL_CLK_IN). To make this work, you
+            # need to drive I2S_MCLK with a 15 MHz clock (pwmio.PWMOut with 50%
+            # duty cycle works fine on RP2350).
             #
-            # NOTE: DOSR controls the oversampling rate. Slower clock rates
-            # need higher oversampling to shift the delta-sigma modulator
-            # quantization noise up out of the audible frequency range. See
-            # datahseet section 6.3.8.
-            #
-            # The constants here come from running a brute force solver to
-            # satisfy the constraints in the datasheet while exactly converting
-            # the PLL input clock to the necessary clock for oversampling
-            # (sample rate * DOSR). By exactly matching the right frequency,
-            # it's possible to _dramatically_ reduce the noise floor and
-            # harmonic distortion of the DAC output.
-            #
+            clock_mux1_source = 0b00  # MCLK
             if sample_rate == 8000:
                 p, r, j, d, ndac, mdac, dosr = 1, 1, 6, 9632, 17, 1, 768
             elif sample_rate == 11025:
@@ -880,25 +909,47 @@ class _Page0Registers(_PagedRegisterBase):
             elif sample_rate == 48000:
                 p, r, j, d, ndac, mdac, dosr = 1, 1, 6, 9632, 17, 1, 128
             else:
-                raise ValueError("Need a valid sample rate: 8000, 11025, 22050, 44100, or 48000")
-
-            self._set_bits(_CLOCK_MUX1, 0x03, 2, 0b00)
-            self._set_bits(_CLOCK_MUX1, 0x03, 0, 0b11)
-            pr_value = ((p & 0x07) << 4) | (r & 0x0F)
-            self._write_register(_PLL_PROG_PR, pr_value & 0x7F)
-            self._write_register(_PLL_PROG_J, j & 0x3F)
-            self._write_register(_PLL_PROG_D_MSB, (d >> 8) & 0xFF)
-            self._write_register(_PLL_PROG_D_LSB, d & 0xFF)
-            self._write_register(_NDAC, 0x80 | (ndac & 0x7F))
-            self._write_register(_MDAC, 0x80 | (mdac & 0x7F))
-            self._write_register(_DOSR_MSB, (dosr >> 8) & 0xFF)
-            self._write_register(_DOSR_LSB, dosr & 0xFF)
-            self._set_codec_interface(FORMAT_I2S, data_len)
-            self._set_bits(_PLL_PROG_PR, 0x01, 7, 1)
-            time.sleep(0.01)
+                raise ValueError("Need a valid MCLK sample rate: 8000, 11025, 22050, 44100, or 48000")
 
         else:
             raise ValueError("Need a valid MCLK frequency: 15MHz or 0 for BCLK")
+
+        # CAUTION: The datasheet specifies sequencing constraints around
+        # changing the PLL and CODEC config. Specific ordering matters here.
+
+        # 1. Ensure DAC and PLL are powered down
+        self._set_bits(_DAC_DATAPATH, 0x03, 6, 0b00)
+        self._set_bits(_PLL_PROG_PR, 0x01, 7, 0b0)
+        time.sleep(0.001)
+
+        # 2. Set PLL clock scaling registers
+        pr_value = ((p & 0x07) << 4) | (r & 0x0F)
+        self._write_register(_PLL_PROG_PR, pr_value & 0x7F)
+        self._write_register(_PLL_PROG_J, j & 0x3F)
+        self._write_register(_PLL_PROG_D_MSB, (d >> 8) & 0xFF)
+        self._write_register(_PLL_PROG_D_LSB, d & 0xFF)
+
+        # 3. Set mux for PLL input clock source (PLL_CLKIN)
+        self._set_bits(_CLOCK_MUX1, 0x0C, 2, clock_mux1_source)
+
+        # 4. Power up  PLL and wait briefly for PLL lock
+        self._set_bits(_PLL_PROG_PR, 0x01, 7, 0b1)
+        time.sleep(0.01)
+
+        # 5. Set mux to route PLL output (PLL_CLK) to CODEC_CLKIN
+        self._set_bits(_CLOCK_MUX1, 0x03, 0, 0b11)
+
+        # 6. Set the data format
+        self._set_codec_interface(FORMAT_I2S, data_len)
+
+        # 7. Configure codec clock dividers for oversampling and DSP
+        self._write_register(_NDAC, 0x80 | (ndac & 0x7F))
+        self._write_register(_MDAC, 0x80 | (mdac & 0x7F))
+        self._write_register(_DOSR_MSB, (dosr >> 8) & 0xFF)
+        self._write_register(_DOSR_LSB, dosr & 0xFF)
+
+        # 8. Power up DAC
+        self._set_bits(_DAC_DATAPATH, 0x03, 6, 0b11)
 
 
 class _Page1Registers(_PagedRegisterBase):
@@ -1143,14 +1194,14 @@ class TLV320DAC3100:
         self._page3: "_Page3Registers" = _Page3Registers(self._device)
         self._sample_rate: int = 44100
         self._bit_depth: int = 16
-        self._mclk_freq: int = 0  # Default blck
+        self._mclk_freq: int = 0  # Default to BCLK
         if not self.reset():
             raise RuntimeError("Failed to reset TLV320DAC3100")
         time.sleep(0.01)
-        self._page0._set_channel_volume(False, 0)
-        self._page0._set_channel_volume(True, 0)
+        self._page0._set_channel_volume(False, -63.5) # Left volume = very low
+        self._page0._set_channel_volume(True, -63.5) # Right volume = very low
 
-        # Both DACs on with normal path by default
+        # Set both DACs for normal path by default (but leave DACs off for now)
         self._page0._set_dac_data_path(
             left_dac_on=True,
             right_dac_on=True,
@@ -1158,6 +1209,12 @@ class TLV320DAC3100:
             right_path=DAC_PATH_NORMAL,
         )
         self._page0._set_dac_volume_control(False, False, VOL_INDEPENDENT)
+
+        # Configure the PLL and CODEC, then turn on the DACs
+        self._page0._configure_clocks_for_sample_rate(
+            self._mclk_freq, self._sample_rate, self.bit_depth
+        )
+
 
     # Basic properties and methods
 
@@ -2095,15 +2152,22 @@ class TLV320DAC3100:
     ):
         """Configure the TLV320DAC3100 clock settings.
 
-        This function configures all necessary clock settings including PLL, dividers,
-        and interface settings to achieve the requested sample rate.
+        This function configures all necessary clock settings including PLL,
+        dividers, and interface settings to achieve the requested sample rate.
 
-        :param sample_rate: The desired sample rate in Hz (8000, 11025, 22050,
-            44100, or 48000)
-        :param bit_depth: The bit depth (16, 20, 24, or 32)
-        :param mclk_freq: The main clock frequency in Hz. Set this to 15_000_000
-            when supplying a 15 MHz PWM square wave into MCLK. If None (the
-            default), use BCLK as the PLL input.
+        :param sample_rate: The desired sample rate in Hz. Supported sample
+            rates are 8000, 11025, 22050, 44100, and 48000. But, to get good
+            quality at low sample rates, you need to use MCLK instead of BCLK.
+        :param bit_depth: The bit depth (16). CircuitPython I2S always sends
+            16-bit stereo, so set this to 16.
+        :param mclk_freq: The main clock (MCLK) frequency (None or 15_000_000).
+            This controls how the DAC uses its PLL to generate the delta-sigma
+            modulator's oversampling clock. For None (the default), the PLL
+            uses the bit clock pin (BCLK) as its input clock. Sound quality for
+            BCLK has a higher noise floor and lots of harmonic distortion at
+            lower sample rates. For better audio quality, set mclk_freq to
+            15_000_000 and supply a 15 MHz clock signal to the MCLK pin. You
+            can use pwmio.PWMOut to generate the 15 MHz clock.
         :return: True if successful, False otherwise
         """
         self._sample_rate = sample_rate
