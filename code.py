@@ -54,7 +54,8 @@ def configure_dac(i2c, sample_rate, mclk_hz):
 i2c = I2C()
 audio = I2SOut(bit_clock=I2S_BCLK, word_select=I2S_WS, data=I2S_DIN)
 
-# Uncomment this to hear how MCLK improves audio when even using PLL_CLKIN=BCLK
+# To hear how MCLK improves audio when even using PLL_CLKIN=BCLK, uncomment
+# the next line and comment out the `if mclk_hz_:` blocks in the loop below.
 # mclk_pwm = PWMOut(I2S_MCLK, frequency=MCLK_HZ, duty_cycle=2**15)
 
 # Loop through all the sample rate and clock source options
@@ -70,7 +71,7 @@ while True:
     # First do MCLK = 15 MHz, then do MCLK = None (meaning use BCLK)
     for mclk_hz_ in (MCLK_HZ, None):
 
-        if mclk_hz_ is not None:
+        if mclk_hz_:
             # Set up 15 MHz MCLK PWM clock output for less hiss and distortion
             mclk_pwm = PWMOut(I2S_MCLK, frequency=MCLK_HZ, duty_cycle=2**15)
 
@@ -98,7 +99,7 @@ while True:
             dac.headphone_right_mute = True
             time.sleep(0.1)
 
-        if mclk_hz_ is not None:
+        if mclk_hz_:
             # When switching to BCLK, stop sending the PWM clock signal to MCLK
             mclk_pwm.deinit()
 
