@@ -1198,8 +1198,10 @@ class TLV320DAC3100:
         if not self.reset():
             raise RuntimeError("Failed to reset TLV320DAC3100")
         time.sleep(0.01)
-        self._page0._set_channel_volume(False, -63.5) # Left volume = very low
-        self._page0._set_channel_volume(True, -63.5) # Right volume = very low
+        # Start with very low volumes to reduce popping when we set up the
+        # clock configuration.
+        self._page0._set_channel_volume(False, -63.5) # Left volume
+        self._page0._set_channel_volume(True, -63.5) # Right volume
 
         # Both DACs on with normal path by default
         self._page0._set_dac_data_path(
