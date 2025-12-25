@@ -16,3 +16,12 @@ relatively good (lower noise floor but still suffers from harmonic distortion).
 
 My conclusion is that using MCLK sounds much better than relying on BCLK, and
 there don't seem to be any further options for improving BCLK as a PLL input.
+
+
+## Demo Code Audio Recording
+
+This is a recording of the demo code that lets you hear sine wave beeps for all
+the supported sample rates with MCLK (sounds good) and BCLK (lots of harmonic
+distortion) as the PLL_CLKIN:
+
+- [sample-rate-demo-better-bclk.wav](sample-rate-demo-better-bclk.wav)
