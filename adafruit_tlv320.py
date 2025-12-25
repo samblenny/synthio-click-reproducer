@@ -1201,7 +1201,7 @@ class TLV320DAC3100:
         self._page0._set_channel_volume(False, -63.5) # Left volume = very low
         self._page0._set_channel_volume(True, -63.5) # Right volume = very low
 
-        # Set both DACs for normal path by default (but leave DACs off for now)
+        # Both DACs on with normal path by default
         self._page0._set_dac_data_path(
             left_dac_on=True,
             right_dac_on=True,
